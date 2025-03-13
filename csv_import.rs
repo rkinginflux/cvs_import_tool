@@ -5,8 +5,9 @@ use clap::Parser;
 use reqwest::blocking::Client;
 
 #[derive(Parser)]
+#[command(author, version, about, long_about = None, arg_required_else_help = true)]
 struct Args {
-
+    
     #[arg(long)]
     file: String,
 
@@ -49,14 +50,14 @@ fn process_csv(
 
     let client = Client::new();
     let influx_write_url = format!("{}/write?db={}", influx_url, database);
-    
+
     let measurement_escaped = escape_identifier(measurement);
 
     for result in reader.records() {
         let record = result?;
         
         let tag_value = &record[tag_index];
-
+        // Escape tag value (spaces, etc.) as needed.
         let tag_value_escaped = escape_identifier(tag_value);
 
         let mut fields = vec![];
