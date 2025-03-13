@@ -23,7 +23,7 @@ Disclaimer
 - Pros
 Can import almost ANY csv
 
--Cons
+- Cons
 Not as fast as using Polars; i.e. slow
 Can't declare multipe Tags yet
 Not tested against InfluxDB v3 yet
