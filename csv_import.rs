@@ -6,7 +6,6 @@ use std::error::Error;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None, arg_required_else_help = true)]
 struct Args {
-    
     #[arg(long)]
     file: String,
 
@@ -31,11 +30,11 @@ fn escape_identifier(input: &str) -> String {
 }
 
 fn process_csv_polars(args: &Args) -> Result<(), Box<dyn Error>> {
+    // Read and force all columns to Utf8
     let mut df = CsvReader::from_path(&args.file)?
         .infer_schema(None)
         .has_header(true)
         .finish()?;
-
     let new_cols = df
         .get_columns()
         .iter()
@@ -50,7 +49,6 @@ fn process_csv_polars(args: &Args) -> Result<(), Box<dyn Error>> {
     df = DataFrame::new(new_cols)?;
 
     let headers = df.get_column_names();
-
     let tag_index = headers
         .iter()
         .position(|h| *h == args.tag)
@@ -61,20 +59,25 @@ fn process_csv_polars(args: &Args) -> Result<(), Box<dyn Error>> {
     let measurement_escaped = escape_identifier(&args.measurement);
 
     for row_idx in 0..df.height() {
-        let tag_value = df.column(&args.tag)?
+        // Pull raw tag, trim whitespace, default to "unknown"
+        let raw_tag = df
+            .column(&args.tag)?
             .utf8()?
             .get(row_idx)
-            .unwrap_or("");
+            .unwrap_or("")
+            .trim();
+        let tag_value = if raw_tag.is_empty() { "unknown" } else { raw_tag };
         let tag_value_escaped = escape_identifier(tag_value);
 
+        // Build all the other fields
         let mut fields = Vec::new();
         for (col_idx, header) in headers.iter().enumerate() {
             if col_idx == tag_index {
                 continue;
             }
             let series = df.column(header)?;
-            let field_value = series.utf8()?.get(row_idx).unwrap_or("");
-            let field_escaped = field_value.replace('"', "\\\"");
+            let value = series.utf8()?.get(row_idx).unwrap_or("");
+            let field_escaped = value.replace('"', "\\\"");
             let header_escaped = escape_identifier(header);
             fields.push(format!("{}=\"{}\"", header_escaped, field_escaped));
         }
@@ -100,6 +103,7 @@ fn process_csv_polars(args: &Args) -> Result<(), Box<dyn Error>> {
             eprintln!("Failed to write to InfluxDB: {:?}", response.text()?);
         }
     }
+
     Ok(())
 }
 
